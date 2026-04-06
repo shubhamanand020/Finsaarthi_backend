@@ -34,3 +34,4 @@ build/
 .env
 .env.local
 set-local-env.ps1
+backend-run.log
