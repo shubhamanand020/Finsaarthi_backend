@@ -1,0 +1,59 @@
+{
+  "properties": [
+    {
+      "name": "app.jwt.secret",
+      "type": "java.lang.String",
+      "description": "JWT signing secret loaded from the environment."
+    },
+    {
+      "name": "app.jwt.expiration-ms",
+      "type": "java.lang.Long",
+      "description": "JWT expiration duration in milliseconds."
+    },
+    {
+      "name": "app.cors.allowed-origins",
+      "type": "java.util.List<java.lang.String>",
+      "description": "Comma-separated list of allowed frontend origins."
+    },
+    {
+      "name": "app.otp.expiration-minutes",
+      "type": "java.lang.Integer",
+      "description": "OTP expiration duration in minutes."
+    },
+    {
+      "name": "app.otp.max-attempts",
+      "type": "java.lang.Integer",
+      "description": "Maximum OTP verification attempts before invalidation."
+    },
+    {
+      "name": "app.otp.request-limit.max-requests",
+      "type": "java.lang.Integer",
+      "description": "Maximum OTP generation requests allowed within the configured time window."
+    },
+    {
+      "name": "app.otp.request-limit.window-minutes",
+      "type": "java.lang.Integer",
+      "description": "Time window in minutes used for OTP request throttling."
+    },
+    {
+      "name": "app.login.rate-limit.max-attempts",
+      "type": "java.lang.Integer",
+      "description": "Maximum failed login attempts allowed before temporary blocking."
+    },
+    {
+      "name": "app.login.rate-limit.window-minutes",
+      "type": "java.lang.Integer",
+      "description": "Time window in minutes used for login rate limiting."
+    },
+    {
+      "name": "app.captcha.expiration-minutes",
+      "type": "java.lang.Integer",
+      "description": "Time window in minutes before generated image captchas expire."
+    },
+    {
+      "name": "app.mail.from",
+      "type": "java.lang.String",
+      "description": "From address used for OTP emails."
+    }
+  ]
+}
