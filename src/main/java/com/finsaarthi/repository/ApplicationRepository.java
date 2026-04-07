@@ -68,8 +68,6 @@ public interface ApplicationRepository extends JpaRepository<Application, Long> 
             JOIN FETCH a.student s
             JOIN FETCH a.scholarship sc
             LEFT JOIN FETCH a.applicationDocuments docs
-            LEFT JOIN FETCH a.reviewAudits ra
-            LEFT JOIN FETCH ra.admin adm
             WHERE a.id = :id
             """)
     Optional<Application> findByIdWithDetails(@Param("id") Long id);

@@ -10,4 +10,8 @@ public class UpdateDocumentVerificationRequest {
     private Boolean verified;
 
     private String notes;
+
+    public boolean isVerified() {
+        return Boolean.TRUE.equals(verified);
+    }
 }

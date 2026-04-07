@@ -258,18 +258,18 @@ public class ApplicationController {
         );
     }
 
-    @PatchMapping("/{id}/documents/{documentId}/verification")
+    @PatchMapping("/{applicationId}/documents/{documentId}/verification")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<ApplicationResponse>> updateDocumentVerification(
-            @PathVariable Long id,
+            @PathVariable Long applicationId,
             @PathVariable Long documentId,
             @Valid @RequestBody UpdateDocumentVerificationRequest request,
             @AuthenticationPrincipal UserDetails userDetails
     ) {
-        log.info("Admin updating document verification. application id: {}, document id: {}", id, documentId);
+        log.info("Admin updating document verification. application id: {}, document id: {}", applicationId, documentId);
 
         ApplicationResponse updated = applicationService.updateDocumentVerification(
-                id,
+                applicationId,
                 documentId,
                 request,
                 userDetails.getUsername()
