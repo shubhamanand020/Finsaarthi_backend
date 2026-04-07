@@ -453,6 +453,7 @@ public class ApplicationService {
         return documents.stream()
                 .sorted(Comparator.comparing(ApplicationDocument::getId, Comparator.nullsLast(Long::compareTo)))
                 .map(document -> ApplicationDocumentResponse.builder()
+                        .id(document.getId())
                         .name(document.getDocumentName())
                         .link(document.getLink())
                         .build())
