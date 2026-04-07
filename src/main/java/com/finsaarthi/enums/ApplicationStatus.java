@@ -4,6 +4,7 @@ public enum ApplicationStatus {
 
     PENDING("Pending"),
     UNDER_REVIEW("Under Review"),
+    VERIFIED("Verified"),
     APPROVED("Approved"),
     REJECTED("Rejected");
 
@@ -28,7 +29,7 @@ public enum ApplicationStatus {
         } catch (IllegalArgumentException ex) {
             throw new IllegalArgumentException(
                     "Invalid status: '" + value +
-                    "'. Allowed values: PENDING, UNDER_REVIEW, APPROVED, REJECTED."
+                    "'. Allowed values: PENDING, UNDER_REVIEW, VERIFIED, APPROVED, REJECTED."
             );
         }
     }
@@ -43,5 +44,9 @@ public enum ApplicationStatus {
 
     public boolean isUnderReview() {
         return this == UNDER_REVIEW;
+    }
+
+    public boolean isVerified() {
+        return this == VERIFIED;
     }
 }

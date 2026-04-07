@@ -2,6 +2,7 @@ package com.finsaarthi.controller;
 
 import com.finsaarthi.dto.request.ApplicationRequest;
 import com.finsaarthi.dto.request.SendApplicationPdfRequest;
+import com.finsaarthi.dto.request.UpdateDocumentVerificationRequest;
 import com.finsaarthi.dto.request.UpdateApplicationStatusRequest;
 import com.finsaarthi.dto.response.ApiResponse;
 import com.finsaarthi.dto.response.ApplicationResponse;
@@ -240,19 +241,42 @@ public class ApplicationController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<ApplicationResponse>> updateApplicationStatus(
             @PathVariable Long id,
-            @Valid @RequestBody UpdateApplicationStatusRequest request
+            @Valid @RequestBody UpdateApplicationStatusRequest request,
+            @AuthenticationPrincipal UserDetails userDetails
     ) {
         log.info("Admin updating status of application id: {} to: {}",
                 id, request.getStatus());
 
         ApplicationResponse updated =
-                applicationService.updateApplicationStatus(id, request);
+                applicationService.updateApplicationStatus(id, request, userDetails.getUsername());
 
         return ResponseEntity.ok(
                 ApiResponse.success(
                         "Application status updated to: " + updated.getStatus(),
                         updated
                 )
+        );
+    }
+
+    @PatchMapping("/{id}/documents/{documentId}/verification")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<ApplicationResponse>> updateDocumentVerification(
+            @PathVariable Long id,
+            @PathVariable Long documentId,
+            @Valid @RequestBody UpdateDocumentVerificationRequest request,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        log.info("Admin updating document verification. application id: {}, document id: {}", id, documentId);
+
+        ApplicationResponse updated = applicationService.updateDocumentVerification(
+                id,
+                documentId,
+                request,
+                userDetails.getUsername()
+        );
+
+        return ResponseEntity.ok(
+                ApiResponse.success("Document verification updated successfully.", updated)
         );
     }
 

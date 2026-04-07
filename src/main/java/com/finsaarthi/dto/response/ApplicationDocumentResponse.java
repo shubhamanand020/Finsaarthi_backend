@@ -14,4 +14,5 @@ public class ApplicationDocumentResponse {
     private Long id;
     private String name;
     private String link;
+    private boolean verified;
 }

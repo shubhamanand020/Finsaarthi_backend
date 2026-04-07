@@ -2,12 +2,15 @@ package com.finsaarthi.service;
 
 import com.finsaarthi.dto.request.ApplicationRequest;
 import com.finsaarthi.dto.request.ApplicationDocumentRequest;
+import com.finsaarthi.dto.request.UpdateDocumentVerificationRequest;
 import com.finsaarthi.dto.request.UpdateApplicationStatusRequest;
 import com.finsaarthi.dto.request.SendApplicationPdfRequest;
 import com.finsaarthi.dto.response.ApplicationDocumentResponse;
+import com.finsaarthi.dto.response.ApplicationReviewAuditResponse;
 import com.finsaarthi.dto.response.ApplicationResponse;
 import com.finsaarthi.entity.Application;
 import com.finsaarthi.entity.ApplicationDocument;
+import com.finsaarthi.entity.ApplicationReviewAudit;
 import com.finsaarthi.entity.RequiredDocument;
 import com.finsaarthi.entity.Scholarship;
 import com.finsaarthi.entity.User;
@@ -25,6 +28,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -188,18 +192,48 @@ public class ApplicationService {
     @Transactional
     public ApplicationResponse updateApplicationStatus(
             Long id,
-            UpdateApplicationStatusRequest request
+            UpdateApplicationStatusRequest request,
+            String adminEmail
     ) {
         Application application = applicationRepository.findByIdWithDetails(id)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Application", "id", id)
                 );
 
-        application.setStatus(request.getStatus());
+        User admin = userRepository.findByEmail(adminEmail)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("User", "email", adminEmail)
+                );
 
-        if (request.getAdminNotes() != null && !request.getAdminNotes().isBlank()) {
-            application.setAdminNotes(request.getAdminNotes().trim());
+        ApplicationStatus currentStatus = application.getStatus();
+        ApplicationStatus targetStatus = request.getStatus();
+
+        validateStatusTransition(currentStatus, targetStatus);
+
+        String notes = request.getAdminNotes() != null ? request.getAdminNotes().trim() : "";
+
+        if (targetStatus == ApplicationStatus.REJECTED && notes.isBlank()) {
+            throw new IllegalArgumentException("Rejection reason is required.");
         }
+
+        if ((targetStatus == ApplicationStatus.VERIFIED || targetStatus == ApplicationStatus.APPROVED)
+                && !areAllDocumentsVerified(application)) {
+            throw new IllegalArgumentException("All submitted documents must be verified before this action.");
+        }
+
+        application.setStatus(targetStatus);
+
+        if (!notes.isBlank()) {
+            application.setAdminNotes(notes);
+        }
+
+        application.addReviewAudit(ApplicationReviewAudit.builder()
+                .admin(admin)
+                .action("STATUS_CHANGED")
+                .fromStatus(currentStatus)
+                .toStatus(targetStatus)
+                .notes(notes.isBlank() ? null : notes)
+                .build());
 
         applicationRepository.saveAndFlush(application);
         log.info("Application id: {} status updated to: {}", id, request.getStatus());
@@ -210,6 +244,53 @@ public class ApplicationService {
                 );
 
         sendApplicationStatusNotification(updated);
+        return mapToResponse(updated);
+    }
+
+    @Transactional
+    public ApplicationResponse updateDocumentVerification(
+            Long applicationId,
+            Long documentId,
+            UpdateDocumentVerificationRequest request,
+            String adminEmail
+    ) {
+        Application application = applicationRepository.findByIdWithDetails(applicationId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Application", "id", applicationId)
+                );
+
+        User admin = userRepository.findByEmail(adminEmail)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("User", "email", adminEmail)
+                );
+
+        ApplicationDocument document = application.getApplicationDocuments().stream()
+                .filter(item -> item.getId() != null && item.getId().equals(documentId))
+                .findFirst()
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("ApplicationDocument", "id", documentId)
+                );
+
+        document.setVerified(Boolean.TRUE.equals(request.getVerified()));
+
+        String notes = request.getNotes() != null ? request.getNotes().trim() : "";
+        String action = document.isVerified() ? "DOCUMENT_VERIFIED" : "DOCUMENT_MARKED_INVALID";
+
+        application.addReviewAudit(ApplicationReviewAudit.builder()
+                .admin(admin)
+                .action(action)
+                .fromStatus(application.getStatus())
+                .toStatus(application.getStatus())
+                .notes(notes.isBlank() ? "Document: " + document.getDocumentName() : notes)
+                .build());
+
+        applicationRepository.saveAndFlush(application);
+
+        Application updated = applicationRepository.findByIdWithDetails(applicationId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Application", "id", applicationId)
+                );
+
         return mapToResponse(updated);
     }
 
@@ -266,6 +347,8 @@ public class ApplicationService {
         List<ApplicationDocumentResponse> documents = mapApplicationDocuments(
                 a.getApplicationDocuments()
         );
+        boolean allDocumentsVerified = !documents.isEmpty()
+                && documents.stream().allMatch(ApplicationDocumentResponse::isVerified);
 
         return ApplicationResponse.builder()
                 .id(a.getId())
@@ -294,6 +377,8 @@ public class ApplicationService {
                         .map(ApplicationDocumentResponse::getLink)
                         .collect(Collectors.joining("\n")))
                 .documents(documents)
+                .allDocumentsVerified(allDocumentsVerified)
+                .reviewHistory(mapReviewHistory(a.getReviewAudits()))
                 .gpa(a.getGpa())
                 .submittedAt(a.getSubmittedAt())
                 .build();
@@ -351,6 +436,7 @@ public class ApplicationService {
                                 normalizeDocumentName(document.getDocumentName())
                         ))
                         .link(validateAndNormalizeLink(document.getLink()))
+                        .verified(false)
                         .build())
                 .collect(Collectors.toCollection(ArrayList::new));
     }
@@ -456,9 +542,55 @@ public class ApplicationService {
                         .id(document.getId())
                         .name(document.getDocumentName())
                         .link(document.getLink())
+                                                .verified(document.isVerified())
                         .build())
                 .collect(Collectors.toList());
     }
+
+        private List<ApplicationReviewAuditResponse> mapReviewHistory(List<ApplicationReviewAudit> audits) {
+                if (audits == null) {
+                        return List.of();
+                }
+
+                return audits.stream()
+                                .sorted(Comparator.comparing(ApplicationReviewAudit::getCreatedAt, Comparator.nullsLast(LocalDateTime::compareTo)).reversed())
+                                .map(audit -> ApplicationReviewAuditResponse.builder()
+                                                .id(audit.getId())
+                                                .adminId(audit.getAdmin() != null ? audit.getAdmin().getId() : null)
+                                                .adminEmail(audit.getAdmin() != null ? audit.getAdmin().getEmail() : null)
+                                                .action(audit.getAction())
+                                                .fromStatus(audit.getFromStatus() != null ? audit.getFromStatus().name() : null)
+                                                .toStatus(audit.getToStatus() != null ? audit.getToStatus().name() : null)
+                                                .notes(audit.getNotes())
+                                                .timestamp(audit.getCreatedAt())
+                                                .build())
+                                .collect(Collectors.toList());
+        }
+
+        private boolean areAllDocumentsVerified(Application application) {
+                List<ApplicationDocument> documents = application.getApplicationDocuments();
+                return documents != null && !documents.isEmpty()
+                                && documents.stream().allMatch(ApplicationDocument::isVerified);
+        }
+
+        private void validateStatusTransition(ApplicationStatus currentStatus, ApplicationStatus nextStatus) {
+                if (currentStatus == nextStatus) {
+                        return;
+                }
+
+                boolean allowed = switch (currentStatus) {
+                        case PENDING -> nextStatus == ApplicationStatus.UNDER_REVIEW;
+                        case UNDER_REVIEW -> nextStatus == ApplicationStatus.VERIFIED;
+                        case VERIFIED -> nextStatus == ApplicationStatus.APPROVED || nextStatus == ApplicationStatus.REJECTED;
+                        case APPROVED, REJECTED -> false;
+                };
+
+                if (!allowed) {
+                        throw new IllegalArgumentException(
+                                        "Invalid review workflow transition: " + currentStatus + " -> " + nextStatus
+                        );
+                }
+        }
 
     private <T> List<T> paginate(List<T> items, Integer page, Integer size) {
         if (page == null && size == null) {

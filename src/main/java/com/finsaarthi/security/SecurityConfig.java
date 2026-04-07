@@ -80,6 +80,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET,   "/applications").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET,   "/applications/stats").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PATCH, "/applications/{id}/status").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PATCH, "/applications/{id}/documents/{documentId}/verification").hasRole("ADMIN")
 
                 // ── Authenticated users (student + admin) ──────────────────
                 .requestMatchers(HttpMethod.GET, "/users/me").authenticated()

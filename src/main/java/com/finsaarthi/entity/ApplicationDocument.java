@@ -27,4 +27,8 @@ public class ApplicationDocument {
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String link;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean verified = false;
 }

@@ -38,6 +38,8 @@ public class ApplicationResponse {
     private Double marks12th;
     private String documentLinks;
     private List<ApplicationDocumentResponse> documents;
+    private boolean allDocumentsVerified;
+    private List<ApplicationReviewAuditResponse> reviewHistory;
     private Double gpa;
     private LocalDateTime submittedAt;
 }

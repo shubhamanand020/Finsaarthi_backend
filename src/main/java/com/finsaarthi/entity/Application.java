@@ -85,6 +85,15 @@ public class Application {
     @Builder.Default
     private List<ApplicationDocument> applicationDocuments = new ArrayList<>();
 
+        @OneToMany(
+            mappedBy = "application",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true,
+            fetch = FetchType.LAZY
+        )
+        @Builder.Default
+        private List<ApplicationReviewAudit> reviewAudits = new ArrayList<>();
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime submittedAt;
@@ -115,6 +124,14 @@ public class Application {
         }
         applicationDocuments.add(applicationDocument);
         applicationDocument.setApplication(this);
+    }
+
+    public void addReviewAudit(ApplicationReviewAudit reviewAudit) {
+        if (reviewAudits == null) {
+            reviewAudits = new ArrayList<>();
+        }
+        reviewAudits.add(reviewAudit);
+        reviewAudit.setApplication(this);
     }
 
     public String getDocumentLinks() {
@@ -169,6 +186,12 @@ public class Application {
             this.documentLinks = getDocumentLinks();
         } else if (documentLinks != null) {
             setDocumentLinks(documentLinks);
+        }
+
+        if (reviewAudits != null) {
+            for (ApplicationReviewAudit reviewAudit : reviewAudits) {
+                reviewAudit.setApplication(this);
+            }
         }
     }
 }
