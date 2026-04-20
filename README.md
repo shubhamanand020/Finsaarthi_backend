@@ -3,7 +3,7 @@
 ## Repositories
 
 - **Frontend**: [FinSaarthi-Frontend](https://github.com/shubhamanand020/Finsaarthi) (React + Vite)
-- **Backend**: [FinSaarthi-Backend](https://github.com/shubhamanand020/Finsaarthi/tree/main/finsaarthi-backend) (this repository)
+- **Backend**: [FinSaarthi-Backend](https://github.com/shubhamanand020/Finsaarthi_backend) (this repository)
 
 ## Overview
 
