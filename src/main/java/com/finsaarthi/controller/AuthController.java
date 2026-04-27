@@ -18,6 +18,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/auth")
@@ -108,15 +109,18 @@ public class AuthController {
     }
 
     @PostMapping("/verify-forgot-otp")
-    public ResponseEntity<ApiResponse<Void>> verifyForgotOtp(
+    public ResponseEntity<ApiResponse<Map<String, String>>> verifyForgotOtp(
             @Valid @RequestBody OtpVerificationRequest request
     ) {
         log.info("Forgot password OTP verification requested for email: {}", request.getEmail());
 
-        authService.verifyForgotPasswordOtp(request);
+        String resetToken = authService.verifyForgotPasswordOtp(request);
 
         return ResponseEntity.ok(
-                ApiResponse.success("OTP verified successfully. You can now update your password.")
+                ApiResponse.success(
+                        "OTP verified successfully. You can now update your password.",
+                        Map.of("resetToken", resetToken)
+                )
         );
     }
 

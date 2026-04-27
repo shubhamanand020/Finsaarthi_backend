@@ -246,6 +246,28 @@ java -jar target/finsaarthi-backend-*.jar
 
 Ensure all environment variables are properly configured in the deployment environment.
 
+### Render Deployment (Backend)
+
+Use these settings in Render for this backend service:
+
+- Runtime: Java 21
+- Build command: `./mvnw clean package -DskipTests`
+- Start command: `java -jar target/finsaarthi-backend-1.0.0.jar`
+
+Recommended Render environment variables:
+
+- `SPRING_PROFILES_ACTIVE=prod`
+- `APP_LOG_LEVEL=INFO`
+- `PORT` (provided automatically by Render)
+- `DB_URL`
+- `DB_USERNAME`
+- `DB_PASSWORD`
+- `DB_DRIVER_CLASS_NAME` (for MySQL: `com.mysql.cj.jdbc.Driver`, for PostgreSQL: `org.postgresql.Driver`)
+- `HIBERNATE_DIALECT` (for MySQL: `org.hibernate.dialect.MySQLDialect`, for PostgreSQL: `org.hibernate.dialect.PostgreSQLDialect`)
+- `JWT_SECRET`
+- `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`
+- `CORS_ALLOWED_ORIGINS` (include your Vercel frontend URL)
+
 ## Troubleshooting
 
 - **Connection refused on port 8080**: Ensure no other service is using the port.

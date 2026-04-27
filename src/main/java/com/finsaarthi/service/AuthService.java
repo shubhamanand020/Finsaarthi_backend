@@ -33,6 +33,7 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
@@ -70,6 +71,7 @@ public class AuthService {
     private int loginRateLimitWindowMinutes;
 
     private final Map<String, Integer> otpAttempts = new ConcurrentHashMap<>();
+    private final Map<String, PasswordResetTokenEntry> passwordResetTokens = new ConcurrentHashMap<>();
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -185,12 +187,13 @@ public class AuthService {
             throw new IllegalArgumentException("Please verify your email before resetting your password.");
         }
 
+        clearResetTokensForEmail(email);
         generateAndSendOtp(email, OtpPurpose.FORGOT_PASSWORD);
         log.info("Forgot password OTP sent for email: {}", email);
     }
 
     @Transactional
-    public void verifyForgotPasswordOtp(OtpVerificationRequest request) {
+    public String verifyForgotPasswordOtp(OtpVerificationRequest request) {
         String email = request.getEmail().toLowerCase().trim();
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
@@ -203,12 +206,21 @@ public class AuthService {
         otpVerification.setVerified(true);
         otpVerificationRepository.save(otpVerification);
         otpAttempts.remove(attemptKey(email, OtpPurpose.FORGOT_PASSWORD));
+        String resetToken = issuePasswordResetToken(email, otpVerification.getExpiryTime());
         log.info("Forgot password OTP verified for email: {}", email);
+        return resetToken;
     }
 
     @Transactional
     public void updatePassword(UpdatePasswordRequest request) {
         String email = request.getEmail().toLowerCase().trim();
+        String resetToken = request.getResetToken().trim();
+
+        PasswordResetTokenEntry tokenEntry = consumePasswordResetToken(resetToken);
+        if (!tokenEntry.email().equalsIgnoreCase(email)) {
+            throw new IllegalArgumentException("Invalid reset token for this email.");
+        }
+
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
 
@@ -234,6 +246,7 @@ public class AuthService {
         userRepository.save(user);
         otpVerificationRepository.deleteByEmailAndPurpose(email, OtpPurpose.FORGOT_PASSWORD);
         otpAttempts.remove(attemptKey(email, OtpPurpose.FORGOT_PASSWORD));
+        clearResetTokensForEmail(email);
         log.info("Password updated successfully for email: {}", email);
     }
 
@@ -354,5 +367,41 @@ public class AuthService {
 
     private String loginIpKey(String clientIpAddress) {
         return "login-ip:" + (clientIpAddress == null || clientIpAddress.isBlank() ? "unknown" : clientIpAddress);
+    }
+
+    private String issuePasswordResetToken(String email, LocalDateTime expiresAt) {
+        clearExpiredPasswordResetTokens();
+        clearResetTokensForEmail(email);
+
+        String token = UUID.randomUUID().toString();
+        passwordResetTokens.put(token, new PasswordResetTokenEntry(email, expiresAt));
+        return token;
+    }
+
+    private PasswordResetTokenEntry consumePasswordResetToken(String token) {
+        clearExpiredPasswordResetTokens();
+
+        PasswordResetTokenEntry tokenEntry = passwordResetTokens.remove(token);
+        if (tokenEntry == null) {
+            throw new IllegalArgumentException("Invalid or expired password reset session. Please verify OTP again.");
+        }
+
+        if (tokenEntry.expiresAt().isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("Password reset session expired. Please verify OTP again.");
+        }
+
+        return tokenEntry;
+    }
+
+    private void clearExpiredPasswordResetTokens() {
+        LocalDateTime now = LocalDateTime.now();
+        passwordResetTokens.entrySet().removeIf(entry -> entry.getValue().expiresAt().isBefore(now));
+    }
+
+    private void clearResetTokensForEmail(String email) {
+        passwordResetTokens.entrySet().removeIf(entry -> entry.getValue().email().equalsIgnoreCase(email));
+    }
+
+    private record PasswordResetTokenEntry(String email, LocalDateTime expiresAt) {
     }
 }

@@ -15,4 +15,7 @@ public class UpdatePasswordRequest {
     @NotBlank(message = "New password is required")
     @Size(min = 8, message = "New password must be at least 8 characters long")
     private String newPassword;
+
+    @NotBlank(message = "Reset token is required")
+    private String resetToken;
 }

@@ -56,7 +56,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/auth/verify-forgot-otp").permitAll()
                 .requestMatchers(HttpMethod.POST, "/auth/update-password").permitAll()
                 .requestMatchers(HttpMethod.GET, "/auth/captcha").permitAll()
-                .requestMatchers(HttpMethod.GET, "/test/email").permitAll()
+                .requestMatchers(HttpMethod.GET, "/test/email").hasRole("ADMIN")
 
                 // ── Public scholarship browsing ────────────────────────────
                 .requestMatchers(HttpMethod.GET, "/scholarships").permitAll()

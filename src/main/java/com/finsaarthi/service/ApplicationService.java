@@ -255,58 +255,50 @@ public class ApplicationService {
             UpdateDocumentVerificationRequest request,
             String adminEmail
     ) {
-        try {
-                        if (request == null) {
-                                throw new RuntimeException("Request body is null");
-                        }
-
-            if (documentId == null) {
-                throw new RuntimeException("Document ID is null");
-            }
-
-            log.info("Document verification request received. applicationId: {}, documentId: {}, verified: {}",
-                    applicationId, documentId, request != null ? request.getVerified() : null);
-
-            Application application = applicationRepository.findByIdWithDetails(applicationId)
-                    .orElseThrow(() ->
-                            new ResourceNotFoundException("Application", "id", applicationId)
-                    );
-
-            User admin = userRepository.findByEmail(adminEmail)
-                    .orElseThrow(() ->
-                            new ResourceNotFoundException("User", "email", adminEmail)
-                    );
-
-            application.getApplicationDocuments()
-                    .forEach(doc -> System.out.println("Doc ID: " + doc.getId()));
-
-            ApplicationDocument document = application.getApplicationDocuments().stream()
-                    .filter(item -> Objects.equals(item.getId(), documentId))
-                    .findFirst()
-                    .orElseThrow(() ->
-                            new RuntimeException("Document not found for ID: " + documentId)
-                    );
-
-            document.setVerified(request.isVerified());
-
-            String notes = request.getNotes() != null ? request.getNotes().trim() : "";
-            String action = document.isVerified() ? "DOCUMENT_VERIFIED" : "DOCUMENT_MARKED_INVALID";
-
-            application.addReviewAudit(ApplicationReviewAudit.builder()
-                    .admin(admin)
-                    .action(action)
-                    .fromStatus(application.getStatus())
-                    .toStatus(application.getStatus())
-                    .notes(notes.isBlank() ? "Document: " + document.getDocumentName() : notes)
-                    .build());
-
-            applicationRepository.saveAndFlush(application);
-
-            return buildApplicationResponse(application);
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw e;
+        if (request == null) {
+            throw new IllegalArgumentException("Request body is required.");
         }
+
+        if (documentId == null) {
+            throw new IllegalArgumentException("Document ID is required.");
+        }
+
+        log.info("Document verification request received. applicationId: {}, documentId: {}, verified: {}",
+                applicationId, documentId, request.getVerified());
+
+        Application application = applicationRepository.findByIdWithDetails(applicationId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Application", "id", applicationId)
+                );
+
+        User admin = userRepository.findByEmail(adminEmail)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("User", "email", adminEmail)
+                );
+
+        ApplicationDocument document = application.getApplicationDocuments().stream()
+                .filter(item -> Objects.equals(item.getId(), documentId))
+                .findFirst()
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("ApplicationDocument", "id", documentId)
+                );
+
+        document.setVerified(request.isVerified());
+
+        String notes = request.getNotes() != null ? request.getNotes().trim() : "";
+        String action = document.isVerified() ? "DOCUMENT_VERIFIED" : "DOCUMENT_MARKED_INVALID";
+
+        application.addReviewAudit(ApplicationReviewAudit.builder()
+                .admin(admin)
+                .action(action)
+                .fromStatus(application.getStatus())
+                .toStatus(application.getStatus())
+                .notes(notes.isBlank() ? "Document: " + document.getDocumentName() : notes)
+                .build());
+
+        applicationRepository.saveAndFlush(application);
+
+        return buildApplicationResponse(application);
     }
 
     @Transactional(readOnly = true)
@@ -399,48 +391,48 @@ public class ApplicationService {
                 .build();
     }
 
-            private ApplicationResponse buildApplicationResponse(Application application) {
+        private ApplicationResponse buildApplicationResponse(Application application) {
                 if (application == null) {
-                    throw new RuntimeException("Application is null while building response");
+                        throw new IllegalArgumentException("Application is required while building response.");
                 }
 
-                List<ApplicationDocumentResponse> documents = mapApplicationDocuments(application.getApplicationDocuments());
-                boolean allDocumentsVerified = !documents.isEmpty()
-                        && documents.stream().allMatch(ApplicationDocumentResponse::isVerified);
+        List<ApplicationDocumentResponse> documents = mapApplicationDocuments(application.getApplicationDocuments());
+        boolean allDocumentsVerified = !documents.isEmpty()
+                && documents.stream().allMatch(ApplicationDocumentResponse::isVerified);
 
-                return ApplicationResponse.builder()
-                        .id(application.getId())
-                        .scholarshipId(application.getScholarship() != null ? application.getScholarship().getId() : null)
-                        .scholarshipTitle(application.getScholarship() != null ? application.getScholarship().getTitle() : null)
-                        .scholarshipProvider(application.getScholarship() != null ? application.getScholarship().getProvider() : null)
-                        .scholarshipAmount(application.getScholarship() != null ? application.getScholarship().getAmount() : null)
-                        .studentId(application.getStudent() != null ? application.getStudent().getId() : null)
-                        .studentName(application.getStudent() != null ? application.getStudent().getName() : null)
-                        .studentEmail(application.getStudent() != null ? application.getStudent().getEmail() : null)
-                        .status(application.getStatus() != null ? application.getStatus().name() : null)
-                        .adminNotes(application.getAdminNotes())
-                        .applicantName(application.getApplicantName())
-                        .applicantEmail(application.getApplicantEmail())
-                        .applicantPhone(application.getApplicantPhone())
-                        .applicantAddress(application.getApplicantAddress())
-                        .applicantEducation(application.getApplicantEducation())
-                        .studentClass(application.getStudentClass())
-                        .location(application.getLocation())
-                        .parentName(application.getParentName())
-                        .parentOccupation(application.getParentOccupation())
-                        .parentMobile(application.getParentMobile())
-                        .marks10th(application.getMarks10th())
-                        .marks12th(application.getMarks12th())
-                        .documentLinks(documents.stream()
-                                .map(ApplicationDocumentResponse::getLink)
-                                .collect(Collectors.joining("\n")))
-                        .documents(documents)
-                        .allDocumentsVerified(allDocumentsVerified)
-                        .reviewHistory(mapReviewHistory(application.getReviewAudits()))
-                        .gpa(application.getGpa())
-                        .submittedAt(application.getSubmittedAt())
-                        .build();
-            }
+        return ApplicationResponse.builder()
+                .id(application.getId())
+                .scholarshipId(application.getScholarship() != null ? application.getScholarship().getId() : null)
+                .scholarshipTitle(application.getScholarship() != null ? application.getScholarship().getTitle() : null)
+                .scholarshipProvider(application.getScholarship() != null ? application.getScholarship().getProvider() : null)
+                .scholarshipAmount(application.getScholarship() != null ? application.getScholarship().getAmount() : null)
+                .studentId(application.getStudent() != null ? application.getStudent().getId() : null)
+                .studentName(application.getStudent() != null ? application.getStudent().getName() : null)
+                .studentEmail(application.getStudent() != null ? application.getStudent().getEmail() : null)
+                .status(application.getStatus() != null ? application.getStatus().name() : null)
+                .adminNotes(application.getAdminNotes())
+                .applicantName(application.getApplicantName())
+                .applicantEmail(application.getApplicantEmail())
+                .applicantPhone(application.getApplicantPhone())
+                .applicantAddress(application.getApplicantAddress())
+                .applicantEducation(application.getApplicantEducation())
+                .studentClass(application.getStudentClass())
+                .location(application.getLocation())
+                .parentName(application.getParentName())
+                .parentOccupation(application.getParentOccupation())
+                .parentMobile(application.getParentMobile())
+                .marks10th(application.getMarks10th())
+                .marks12th(application.getMarks12th())
+                .documentLinks(documents.stream()
+                        .map(ApplicationDocumentResponse::getLink)
+                        .collect(Collectors.joining("\n")))
+                .documents(documents)
+                .allDocumentsVerified(allDocumentsVerified)
+                .reviewHistory(mapReviewHistory(application.getReviewAudits()))
+                .gpa(application.getGpa())
+                .submittedAt(application.getSubmittedAt())
+                .build();
+    }
 
     private List<ApplicationDocument> buildApplicationDocuments(
             ApplicationRequest request,
