@@ -5,17 +5,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import javax.imageio.ImageIO;
-import java.awt.BasicStroke;
-import java.awt.Color;
-import java.awt.Font;
-import java.awt.Graphics2D;
-import java.awt.RenderingHints;
-import java.awt.geom.AffineTransform;
-import java.awt.image.BufferedImage;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.security.SecureRandom;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.Map;
@@ -91,56 +82,85 @@ public class CaptchaService {
     }
 
     private String renderCaptchaImage(String text) {
-        BufferedImage image = new BufferedImage(IMAGE_WIDTH, IMAGE_HEIGHT, BufferedImage.TYPE_INT_RGB);
-        Graphics2D graphics = image.createGraphics();
-
         try {
-            graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            graphics.setColor(new Color(248, 250, 252));
-            graphics.fillRect(0, 0, IMAGE_WIDTH, IMAGE_HEIGHT);
+            StringBuilder svg = new StringBuilder();
+            svg.append("<svg xmlns='http://www.w3.org/2000/svg' width='")
+                    .append(IMAGE_WIDTH)
+                    .append("' height='")
+                    .append(IMAGE_HEIGHT)
+                    .append("' viewBox='0 0 ")
+                    .append(IMAGE_WIDTH)
+                    .append(' ')
+                    .append(IMAGE_HEIGHT)
+                    .append("'>");
+            svg.append("<rect width='100%' height='100%' rx='12' ry='12' fill='rgb(248,250,252)'/>");
 
             for (int index = 0; index < 12; index++) {
-                graphics.setColor(new Color(210, 214, 220));
-                int x1 = SECURE_RANDOM.nextInt(IMAGE_WIDTH);
-                int y1 = SECURE_RANDOM.nextInt(IMAGE_HEIGHT);
-                int x2 = SECURE_RANDOM.nextInt(IMAGE_WIDTH);
-                int y2 = SECURE_RANDOM.nextInt(IMAGE_HEIGHT);
-                graphics.drawLine(x1, y1, x2, y2);
+                svg.append("<line x1='")
+                        .append(SECURE_RANDOM.nextInt(IMAGE_WIDTH))
+                        .append("' y1='")
+                        .append(SECURE_RANDOM.nextInt(IMAGE_HEIGHT))
+                        .append("' x2='")
+                        .append(SECURE_RANDOM.nextInt(IMAGE_WIDTH))
+                        .append("' y2='")
+                        .append(SECURE_RANDOM.nextInt(IMAGE_HEIGHT))
+                        .append("' stroke='rgb(210,214,220)' stroke-width='1.6' opacity='0.9'/>");
             }
-
-            graphics.setStroke(new BasicStroke(1.6f));
-            graphics.setFont(new Font("SansSerif", Font.BOLD, 32));
 
             for (int index = 0; index < text.length(); index++) {
                 char character = text.charAt(index);
-                AffineTransform originalTransform = graphics.getTransform();
-                double rotation = (SECURE_RANDOM.nextDouble() - 0.5) * 0.4;
-                graphics.rotate(rotation, 28 + index * 28, 34);
-                graphics.setColor(new Color(35 + SECURE_RANDOM.nextInt(80), 55, 55 + SECURE_RANDOM.nextInt(80)));
-                graphics.drawString(String.valueOf(character), 18 + index * 28, 38 + SECURE_RANDOM.nextInt(8));
-                graphics.setTransform(originalTransform);
+                double rotation = (SECURE_RANDOM.nextDouble() - 0.5) * 24;
+                int x = 24 + index * 28;
+                int y = 38 + SECURE_RANDOM.nextInt(8);
+                int red = 35 + SECURE_RANDOM.nextInt(80);
+                int green = 55;
+                int blue = 55 + SECURE_RANDOM.nextInt(80);
+
+                svg.append("<text x='")
+                        .append(x)
+                        .append("' y='")
+                        .append(y)
+                        .append("' font-family='Arial, Helvetica, sans-serif' font-size='32' font-weight='700' fill='rgb(")
+                        .append(red)
+                        .append(',')
+                        .append(green)
+                        .append(',')
+                        .append(blue)
+                        .append(")' transform='rotate(")
+                        .append(String.format(java.util.Locale.ROOT, "%.2f", rotation))
+                        .append(' ')
+                        .append(x)
+                        .append(' ')
+                        .append(y)
+                        .append(")'>")
+                        .append(escapeXml(Character.toString(character)))
+                        .append("</text>");
             }
 
             for (int index = 0; index < 40; index++) {
-                graphics.setColor(new Color(190, 196, 204));
-                graphics.fillOval(
-                        SECURE_RANDOM.nextInt(IMAGE_WIDTH),
-                        SECURE_RANDOM.nextInt(IMAGE_HEIGHT),
-                        2,
-                        2
-                );
+                svg.append("<circle cx='")
+                        .append(SECURE_RANDOM.nextInt(IMAGE_WIDTH))
+                        .append("' cy='")
+                        .append(SECURE_RANDOM.nextInt(IMAGE_HEIGHT))
+                        .append("' r='1.3' fill='rgb(190,196,204)'/>");
             }
 
-            try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
-                ImageIO.write(image, "png", outputStream);
-                return Base64.getEncoder().encodeToString(outputStream.toByteArray());
-            }
-        } catch (IOException ex) {
+            svg.append("</svg>");
+
+            return "data:image/svg+xml;base64," + Base64.getEncoder().encodeToString(svg.toString().getBytes(StandardCharsets.UTF_8));
+        } catch (Exception ex) {
             log.error("Failed to render captcha image: {}", ex.getMessage(), ex);
             throw new IllegalStateException("Unable to generate captcha image.");
-        } finally {
-            graphics.dispose();
         }
+    }
+
+    private String escapeXml(String value) {
+        return value
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&apos;");
     }
 
     private record CaptchaEntry(String answer, LocalDateTime expiresAt) {
