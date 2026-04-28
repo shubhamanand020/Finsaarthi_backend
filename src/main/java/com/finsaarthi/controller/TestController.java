@@ -20,20 +20,20 @@ public class TestController {
 
     private final EmailService emailService;
 
-    @Value("${MAIL_USERNAME:}")
-    private String configuredMailUsername;
+    @Value("${brevo.sender-email:}")
+    private String configuredSenderEmail;
 
     @GetMapping("/email")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Void>> sendTestEmail(
             @RequestParam(required = false) String to
     ) {
-        String fallbackRecipient = configuredMailUsername == null ? "" : configuredMailUsername.trim();
+        String fallbackRecipient = configuredSenderEmail == null ? "" : configuredSenderEmail.trim();
         String recipient = (to == null || to.isBlank()) ? fallbackRecipient : to.trim();
 
         if (recipient.isBlank()) {
             throw new IllegalStateException(
-                    "No recipient available for test email. Provide ?to=email@example.com or configure MAIL_USERNAME."
+                    "No recipient available for test email. Provide ?to=email@example.com or configure BREVO_SENDER_EMAIL."
             );
         }
 
@@ -41,8 +41,8 @@ public class TestController {
 
         emailService.sendPlainEmail(
                 recipient,
-                "FinSaarthi SMTP Test",
-                "This is a test email from FinSaarthi to verify SMTP configuration."
+                "FinSaarthi Brevo Test",
+                "This is a test email from FinSaarthi to verify Brevo email delivery."
         );
 
         return ResponseEntity.ok(ApiResponse.success("Test email sent successfully."));
